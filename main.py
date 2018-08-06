@@ -1,7 +1,7 @@
 import requests
 import yaml
 import io
-from db_persistence import salvarQuestoes
+import db_persistence as dbp
 from bs4 import BeautifulSoup
 
 url_base = 'https://pilotobrasil.com.br'
@@ -55,7 +55,7 @@ def get_Quantidade_Questao(form):
     return 0
 
 def getQuestoes(qtd, form, data):
-  result = {}
+  result = []
   for i in range(0, qtd):
     div = form.find("div", {"id": "tabs-" + str(i)})
     cdQuestao = div.find("input", {"name":"q" + str(i)}).get("value")
@@ -64,16 +64,16 @@ def getQuestoes(qtd, form, data):
     op2 = div.find("label",{"id":"label-"+str(i)+"-b"}).text[1:].strip()
     op3 = div.find("label",{"id":"label-"+str(i)+"-c"}).text[1:].strip()
     op4 = div.find("label",{"id":"label-"+str(i)+"-d"}).text[1:].strip()
-    result['questao-'+str(data['course'])+'-'+str(data['group'])+'-'+str(cdQuestao)] = {
+    #result['questao-'+str(data['course'])+'-'+str(data['group'])+'-'+str(cdQuestao)] = {
+    questao = {
       "course":data['course'],
       'group':data['group'],
       'questao':cdQuestao,
       'descricao':deQuestao,
-      'alternativa-01':op1,
-      'alternativa-02':op2,
-      'alternativa-03':op3,
-      'alternativa-04':op4,
+      'alternativas': [op1,op2,op3,op4]
     }
+    result.append(questao)
+    #dbp.inserirQuestao(questao)
   return result
 
 def get_PCA_Hot_Questions(data):
@@ -88,7 +88,7 @@ def get_PCA_Hot_Questions(data):
   get_Pretest_Question_FormData(form, data)
   qtd = get_Quantidade_Questao(form)
   questoes = getQuestoes(qtd, form, data)
-  salvarQuestoes(questoes)
+  dbp.inserirQuestoes(questoes)
 
 def get_PCA_Fav_Questions():
   # favorite questions
@@ -106,8 +106,8 @@ with open("config.yaml", 'r') as stream:
     data_loaded = yaml.load(stream)
 
 with requests.Session() as c:
-  if login(**data_loaded):
-    get_PCA_Hot_Questions(data)
-    print(data)
+  if login('ruscigno@gmail.com','AleGuga'):
+    for x in range(100):
+      get_PCA_Hot_Questions(data)
   else:
     print('Ops! Deu zica!!!')
