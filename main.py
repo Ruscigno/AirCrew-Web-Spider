@@ -106,7 +106,7 @@ with open("config.yaml", 'r') as stream:
     data_loaded = yaml.load(stream)
 
 with requests.Session() as c:
-  if login('ruscigno@gmail.com','AleGuga'):
+  if login(**data_loaded):
     for x in range(100):
       get_PCA_Hot_Questions(data)
   else:
