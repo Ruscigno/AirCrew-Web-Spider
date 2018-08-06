@@ -1,4 +1,7 @@
 import requests
+import yaml
+import io
+from db_persistence import salvarQuestoes
 from bs4 import BeautifulSoup
 
 url_base = 'https://pilotobrasil.com.br'
@@ -29,25 +32,49 @@ def login(username,password):
   else:
     return False
 
-def get_Pretest_Question(url, data):
-  quest = c.get(url)
-  soup = BeautifulSoup(quest.content, "html.parser")
-  form = soup.find('form')
+def get_Pretest_Question_FormData(form, data):
   #token
-  token = form.find_all("input", {"name": "_token"})  
+  token = form.find_all("input", {"name": "_token"})
   data['token'] = token[0].get('value')
   #course
   course = form.find_all("input", {"name": "course"})  
-  data['course'] = token[0].get('value')
+  data['course'] = course[0].get('value')
   #group
   group = form.find_all("input", {"name": "group"})  
-  data['group'] = token[0].get('value')
+  data['group'] = group[0].get('value')
   #time
   #time = form.find_all("input", {"name": "time"})  
   #time = token[0].get('value')
-  data['time'] = ''
+  #data['time'] = ''
 
+def get_Quantidade_Questao(form):
+  lis = form.find_all("li")
+  if len(lis) > 0:
+    return len(lis)
+  else:
+    return 0
 
+def getQuestoes(qtd, form, data):
+  result = {}
+  for i in range(0, qtd):
+    div = form.find("div", {"id": "tabs-" + str(i)})
+    cdQuestao = div.find("input", {"name":"q" + str(i)}).get("value")
+    deQuestao = div.find("div", {"class":"question"}).find("p").text
+    op1 = div.find("label",{"id":"label-"+str(i)+"-a"}).text[1:].strip()
+    op2 = div.find("label",{"id":"label-"+str(i)+"-b"}).text[1:].strip()
+    op3 = div.find("label",{"id":"label-"+str(i)+"-c"}).text[1:].strip()
+    op4 = div.find("label",{"id":"label-"+str(i)+"-d"}).text[1:].strip()
+    result['questao-'+str(data['course'])+'-'+str(data['group'])+'-'+str(cdQuestao)] = {
+      "course":data['course'],
+      'group':data['group'],
+      'questao':cdQuestao,
+      'descricao':deQuestao,
+      'alternativa-01':op1,
+      'alternativa-02':op2,
+      'alternativa-03':op3,
+      'alternativa-04':op4,
+    }
+  return result
 
 def get_PCA_Hot_Questions(data):
   # hot questions
@@ -57,7 +84,11 @@ def get_PCA_Hot_Questions(data):
   hot_reg = '/simulados/realizar/5/23'
   hot_tv = '/simulados/realizar/5/18'
 
-  get_Pretest_Question(url_base + hot_ct, data)
+  form = BeautifulSoup(c.get(url_base + hot_ct).content, "html.parser").find('form')
+  get_Pretest_Question_FormData(form, data)
+  qtd = get_Quantidade_Questao(form)
+  questoes = getQuestoes(qtd, form, data)
+  salvarQuestoes(questoes)
 
 def get_PCA_Fav_Questions():
   # favorite questions
@@ -70,8 +101,12 @@ def get_PCA_Fav_Questions():
 
 
 data = {}
+# Read YAML file
+with open("config.yaml", 'r') as stream:
+    data_loaded = yaml.load(stream)
+
 with requests.Session() as c:
-  if login('teste@gmail.com','teste'):
+  if login(**data_loaded):
     get_PCA_Hot_Questions(data)
     print(data)
   else:
