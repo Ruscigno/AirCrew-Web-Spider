@@ -2,6 +2,8 @@ import requests
 import yaml
 import io
 import db_persistence as dbp
+import csv_persistence as csv
+
 from bs4 import BeautifulSoup
 
 url_base = 'https://pilotobrasil.com.br'
@@ -59,12 +61,11 @@ def getQuestoes(qtd, form, data):
   for i in range(0, qtd):
     div = form.find("div", {"id": "tabs-" + str(i)})
     cdQuestao = div.find("input", {"name":"q" + str(i)}).get("value")
-    deQuestao = div.find("div", {"class":"question"}).find("p").text
-    op1 = div.find("label",{"id":"label-"+str(i)+"-a"}).text[1:].strip()
-    op2 = div.find("label",{"id":"label-"+str(i)+"-b"}).text[1:].strip()
-    op3 = div.find("label",{"id":"label-"+str(i)+"-c"}).text[1:].strip()
-    op4 = div.find("label",{"id":"label-"+str(i)+"-d"}).text[1:].strip()
-    #result['questao-'+str(data['course'])+'-'+str(data['group'])+'-'+str(cdQuestao)] = {
+    deQuestao = div.find("div", {"class":"question"}).find("p").text.replace('"',"'")
+    op1 = div.find("label",{"id":"label-"+str(i)+"-a"}).text[1:].strip().replace('"',"'")
+    op2 = div.find("label",{"id":"label-"+str(i)+"-b"}).text[1:].strip().replace('"',"'")
+    op3 = div.find("label",{"id":"label-"+str(i)+"-c"}).text[1:].strip().replace('"',"'")
+    op4 = div.find("label",{"id":"label-"+str(i)+"-d"}).text[1:].strip().replace('"',"'")
     questao = {
       "course":data['course'],
       'group':data['group'],
@@ -73,7 +74,6 @@ def getQuestoes(qtd, form, data):
       'alternativas': [op1,op2,op3,op4]
     }
     result.append(questao)
-    #dbp.inserirQuestao(questao)
   return result
 
 def get_PCA_Hot_Questions(data):
@@ -88,7 +88,14 @@ def get_PCA_Hot_Questions(data):
   get_Pretest_Question_FormData(form, data)
   qtd = get_Quantidade_Questao(form)
   questoes = getQuestoes(qtd, form, data)
-  dbp.inserirQuestoes(questoes)
+  #salvarQuestoes(questoes, 'csv', 'questoes' + hot_ct.replace('/','-') + '.csv')
+  salvarQuestoes(questoes, 'mongo')
+
+def salvarQuestoes(questoes, tipo, file=''):
+  if tipo == 'csv':
+    csv.salvarQuestoes(questoes, file)
+  else:
+    dbp.inserirQuestoes(questoes)
 
 def get_PCA_Fav_Questions():
   # favorite questions
@@ -102,12 +109,13 @@ def get_PCA_Fav_Questions():
 
 data = {}
 # Read YAML file
-with open("config.yaml", 'r') as stream:
-    data_loaded = yaml.load(stream)
+data_loaded = yaml.load_file('config.yaml')
+#with open("config.yaml", 'r') as stream:
+    #data_loaded = yaml.load(stream)
 
 with requests.Session() as c:
-  if login(**data_loaded):
-    for x in range(100):
+  if login(data_loaded[0], data_loaded[1]):
+    for x in range(1):
       get_PCA_Hot_Questions(data)
   else:
     print('Ops! Deu zica!!!')
